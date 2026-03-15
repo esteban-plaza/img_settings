@@ -28,9 +28,9 @@ jobs:
 
       - name: Run semantic-release
         id: release
+        uses: cycjimmy/semantic-release-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
 
   # ── 2. macOS universal binary + .app bundle ─────────────────────────────────
   build-macos:
@@ -47,6 +47,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Create dist dir
+        run: mkdir -p dist
 
       - name: Build arm64
         run: |
@@ -94,6 +97,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Create dist dir
+        run: mkdir -p dist
 
       - name: Build GUI
         run: |
