@@ -18,7 +18,7 @@ jobs:
       released: ${{ steps.release.outputs.new_release_published }}
       version: ${{ steps.release.outputs.new_release_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # full history needed for semantic-release
 
@@ -41,7 +41,7 @@ jobs:
     env:
       VERSION: ${{ needs.semantic-release.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v5
         with:
@@ -88,7 +88,7 @@ jobs:
     env:
       VERSION: ${{ needs.semantic-release.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v5
         with:
