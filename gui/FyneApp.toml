@@ -1,0 +1,9 @@
+Website = "https://github.com/esteban-plaza/img_settings"
+
+[Details]
+  Icon = "../gui/assets/AppIcon.png"
+  Build = 1
+  Version = "0.1.0"
+
+[MacOS]
+  Category = "public.app-category.photography"

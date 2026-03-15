@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-check:
+    name: Build & vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Fyne requires OpenGL headers on Linux
+      - name: Install Linux GL deps
+        run: sudo apt-get install -y libgl1-mesa-dev xorg-dev
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Build lib
+        run: CGO_ENABLED=0 go build ./lib/ ./cli/
+
+      - name: Build GUI (headless check)
+        run: CGO_ENABLED=1 go build ./gui/

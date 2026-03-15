@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write  # needed to create releases and push tags
+  issues: write
+  pull-requests: write
+
+jobs:
+  # ── 1. Semantic release ─────────────────────────────────────────────────────
+  semantic-release:
+    name: Semantic release
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.release.outputs.new_release_published }}
+      version: ${{ steps.release.outputs.new_release_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history needed for semantic-release
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Run semantic-release
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+  # ── 2. macOS universal binary + .app bundle ─────────────────────────────────
+  build-macos:
+    name: Build macOS
+    needs: semantic-release
+    if: needs.semantic-release.outputs.released == 'true'
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.semantic-release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build arm64
+        run: |
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
+            go build -ldflags="-s -w -X main.version=$VERSION" \
+            -o dist/img_settings-darwin-arm64 ./gui/
+
+      - name: Build amd64
+        run: |
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+            go build -ldflags="-s -w -X main.version=$VERSION" \
+            -o dist/img_settings-darwin-amd64 ./gui/
+
+      - name: Create universal binary
+        run: |
+          lipo -create -output dist/img_settings-darwin-universal \
+            dist/img_settings-darwin-arm64 \
+            dist/img_settings-darwin-amd64
+
+      - name: Build CLI
+        run: |
+          CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$VERSION" \
+            -o dist/img_settings-cli-macos ./cli/
+
+      - name: Upload macOS artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          files: |
+            dist/img_settings-darwin-universal
+            dist/img_settings-cli-macos
+
+  # ── 3. Windows .exe ─────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows
+    needs: semantic-release
+    if: needs.semantic-release.outputs.released == 'true'
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.semantic-release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build GUI
+        run: |
+          go build -ldflags="-H windowsgui -s -w -X main.version=$env:VERSION" `
+            -o dist/img_settings-windows-amd64.exe ./gui/
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Build CLI
+        run: |
+          go build -ldflags="-s -w -X main.version=$env:VERSION" `
+            -o dist/img_settings-cli-windows.exe ./cli/
+        env:
+          CGO_ENABLED: "0"
+
+      - name: Upload Windows artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          files: |
+            dist/img_settings-windows-amd64.exe
+            dist/img_settings-cli-windows.exe
