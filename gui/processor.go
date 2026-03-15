@@ -15,6 +15,7 @@ type Options struct {
 	Recurse bool
 	Opacity float64
 	OutDir  string // empty = derive from first dropped path
+	Workers int    // 0 = auto (CPU*2)
 }
 
 // jobResult is the result of processing a single file.
@@ -33,7 +34,10 @@ func processFiles(files []string, opts Options, onResult func(jobResult)) {
 		return
 	}
 
-	workers := runtime.NumCPU() * 2
+	workers := opts.Workers
+	if workers <= 0 {
+		workers = runtime.NumCPU() * 2
+	}
 	jobs := make(chan string, len(files))
 	var wg sync.WaitGroup
 

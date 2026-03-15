@@ -43,11 +43,11 @@ func newDropZone() *DropZone {
 
 	dz.border = canvas.NewRaster(dz.drawBorder)
 
-	dz.label = canvas.NewText("Drop photos or folders here", color.White)
+	dz.label = canvas.NewText("Drop photos or folders here", color.Black)
 	dz.label.Alignment = fyne.TextAlignCenter
 	dz.label.TextSize = 15
 
-	dz.sub = canvas.NewText("or tap to choose", color.White)
+	dz.sub = canvas.NewText("or click to browse", color.Black)
 	dz.sub.Alignment = fyne.TextAlignCenter
 	dz.sub.TextSize = 12
 
@@ -81,9 +81,9 @@ func (dz *DropZone) updateLabels() {
 		dz.sub.Text = ""
 	default:
 		dz.label.Text = "Drop photos or folders here"
-		dz.label.Color = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xdd}
-		dz.sub.Text = "or tap to choose"
-		dz.sub.Color = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0x60}
+		dz.label.Color = color.NRGBA{R: 0x3A, G: 0x3A, B: 0x3C, A: 0xff}
+		dz.sub.Text = "or click to browse"
+		dz.sub.Color = color.NRGBA{R: 0x8E, G: 0x8E, B: 0x93, A: 0xff}
 	}
 	dz.label.Refresh()
 	dz.sub.Refresh()
@@ -142,66 +142,79 @@ func (dz *DropZone) drawBorder(w, h int) image.Image {
 	return dc.Image()
 }
 
-// ── Cloud icon widget ─────────────────────────────────────────────────────────
+// ── Photo icon widget ─────────────────────────────────────────────────────────
 
-// cloudIcon is a small canvas.Raster that draws a stylised upload-cloud icon.
-// It reads the parent DropZone state to choose colours.
-type cloudIcon struct {
+// photoIcon draws a minimal image-frame icon (rounded rect + mountain + sun).
+type photoIcon struct {
 	widget.BaseWidget
 	dz     *DropZone
 	raster *canvas.Raster
 }
 
-func newCloudIcon(dz *DropZone) *cloudIcon {
-	ci := &cloudIcon{dz: dz}
+func newCloudIcon(dz *DropZone) *photoIcon {
+	ci := &photoIcon{dz: dz}
 	ci.raster = canvas.NewRaster(ci.draw)
 	ci.ExtendBaseWidget(ci)
 	return ci
 }
 
-func (ci *cloudIcon) MinSize() fyne.Size { return fyne.NewSize(64, 52) }
+func (ci *photoIcon) MinSize() fyne.Size { return fyne.NewSize(72, 58) }
 
-func (ci *cloudIcon) CreateRenderer() fyne.WidgetRenderer {
+func (ci *photoIcon) CreateRenderer() fyne.WidgetRenderer {
 	return widget.NewSimpleRenderer(ci.raster)
 }
 
-func (ci *cloudIcon) draw(w, h int) image.Image {
+func (ci *photoIcon) draw(w, h int) image.Image {
 	dc := gg.NewContext(w, h)
 	state := dzState(ci.dz.state.Load())
 
-	cx, cy := float64(w)/2, float64(h)/2+2
-	r := float64(h) * 0.32
-
+	var sr, sg, sb, sa float64
 	switch state {
 	case dzHover:
-		dc.SetRGBA(0.0, 0.44, 0.89, 0.90)
-	case dzProcessing:
-		dc.SetRGBA(0.55, 0.55, 0.60, 0.50)
+		sr, sg, sb, sa = 0.0, 0.44, 0.89, 1.0
 	default:
-		dc.SetRGBA(0.65, 0.65, 0.70, 0.70)
+		sr, sg, sb, sa = 0.56, 0.56, 0.58, 1.0
 	}
 
-	// Cloud shape
-	dc.DrawEllipse(cx, cy, r*1.05, r*0.68)
-	dc.DrawCircle(cx-r*0.65, cy+r*0.05, r*0.50)
-	dc.DrawCircle(cx+r*0.60, cy+r*0.05, r*0.42)
+	fw, fh := float64(w), float64(h)
+	lw := fw * 0.048
+
+	// Photo frame: landscape rect centred in the icon area
+	fx := fw * 0.06
+	fy := fh * 0.10
+	frW := fw * 0.88
+	frH := fh * 0.80
+	rc := fh * 0.10
+
+	// very light fill
+	dc.SetRGBA(sr, sg, sb, 0.08)
+	dc.DrawRoundedRectangle(fx, fy, frW, frH, rc)
 	dc.Fill()
 
-	// Arrow up — white, centered
-	lw := r * 0.14
+	// frame border
 	dc.SetLineWidth(lw)
-	aw := r * 0.38
-	ay := cy - float64(h)*0.06
-	if state == dzHover {
-		dc.SetRGBA(1, 1, 1, 1.0)
-	} else {
-		dc.SetRGBA(1, 1, 1, 0.85)
-	}
-	dc.DrawLine(cx, ay, cx, ay+r*0.62)
+	dc.SetRGBA(sr, sg, sb, sa)
+	dc.DrawRoundedRectangle(fx, fy, frW, frH, rc)
 	dc.Stroke()
-	dc.MoveTo(cx-aw/2, ay+aw*0.55)
-	dc.LineTo(cx, ay)
-	dc.LineTo(cx+aw/2, ay+aw*0.55)
+
+	// Sun — small filled circle, upper-left inside frame
+	sunR := fh * 0.09
+	dc.DrawCircle(fx+frW*0.22, fy+frH*0.30, sunR)
+	dc.Fill()
+
+	// Mountain — single peak, stroke only
+	// clip to inside the frame so lines don't overflow
+	dc.DrawRoundedRectangle(fx+lw, fy+lw, frW-lw*2, frH-lw*2, rc)
+	dc.Clip()
+
+	mountainBaseY := fy + frH - lw*0.5
+	dc.MoveTo(fx, mountainBaseY)
+	dc.LineTo(fx+frW*0.38, fy+frH*0.42)
+	dc.LineTo(fx+frW*0.60, fy+frH*0.62)
+	dc.LineTo(fx+frW*0.80, fy+frH*0.38)
+	dc.LineTo(fx+frW, mountainBaseY)
+	dc.SetLineWidth(lw)
+	dc.SetRGBA(sr, sg, sb, sa*0.50)
 	dc.Stroke()
 
 	return dc.Image()

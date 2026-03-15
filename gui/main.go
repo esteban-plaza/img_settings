@@ -58,6 +58,7 @@ func main() {
 		if opts.OutDir == "" {
 			opts.OutDir = filepath.Join(base, "out")
 		}
+		opts.Workers = demoWorkers
 
 		files := collectFiles(paths, opts.Recurse)
 		if len(files) == 0 {
@@ -108,6 +109,8 @@ func main() {
 		}
 		onDrop(paths)
 	})
+
+	demoHook(onDrop)
 
 	w.ShowAndRun()
 }

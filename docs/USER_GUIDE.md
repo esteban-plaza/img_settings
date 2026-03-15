@@ -65,6 +65,8 @@ Double-click `img-settings-windows-amd64.exe`. If Windows Defender SmartScreen s
 
 ### Drop your photos
 
+![Drop zone — ready to receive photos](assets/screenshot-dropzone.png)
+
 When you open the app you will see a large drop zone in the centre of the window. You can:
 
 - **Drag and drop** one or more photos directly onto the window
@@ -99,10 +101,14 @@ The folder where the processed photos will be saved.
 
 ### Progress and results
 
+![Processing in progress](assets/screenshot-processing.png)
+
 Once processing starts, the drop zone is replaced by a progress bar and a list of files being processed. Each file shows:
 
 - ✓ and the file size when it finishes successfully
 - ✗ and an error message if something went wrong
+
+![Done — all files processed](assets/screenshot-done.png)
 
 When all files are done, two buttons appear:
 

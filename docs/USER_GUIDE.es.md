@@ -65,6 +65,8 @@ Hacé doble clic en `img-settings-windows-amd64.exe`. Si Windows Defender SmartS
 
 ### Agregar tus fotos
 
+![Zona de arrastre — lista para recibir fotos](assets/screenshot-dropzone.png)
+
 Al abrir la app verás una zona de arrastre grande en el centro de la ventana. Podés:
 
 - **Arrastrar y soltar** una o más fotos directamente en la ventana
@@ -99,10 +101,14 @@ La carpeta donde se guardarán las fotos procesadas.
 
 ### Progreso y resultados
 
+![Procesando archivos](assets/screenshot-processing.png)
+
 Una vez que empieza el procesamiento, la zona de arrastre se reemplaza por una barra de progreso y una lista de archivos. Cada archivo muestra:
 
 - ✓ y el tamaño del archivo cuando termina correctamente
 - ✗ y un mensaje de error si algo salió mal
+
+![Listo — todos los archivos procesados](assets/screenshot-done.png)
 
 Cuando terminan todos los archivos, aparecen dos botones:
 
