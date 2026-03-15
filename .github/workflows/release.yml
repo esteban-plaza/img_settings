@@ -63,12 +63,6 @@ jobs:
             go build -ldflags="-s -w -X main.version=$VERSION" \
             -o dist/img_settings-darwin-amd64 ./gui/
 
-      - name: Create universal binary
-        run: |
-          lipo -create -output dist/img_settings-darwin-universal \
-            dist/img_settings-darwin-arm64 \
-            dist/img_settings-darwin-amd64
-
       - name: Build CLI
         run: |
           CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$VERSION" \
@@ -79,7 +73,8 @@ jobs:
         with:
           tag_name: v${{ env.VERSION }}
           files: |
-            dist/img_settings-darwin-universal
+            dist/img_settings-darwin-arm64
+            dist/img_settings-darwin-amd64
             dist/img_settings-cli-macos
 
   # ── 3. Windows .exe ─────────────────────────────────────────────────────────

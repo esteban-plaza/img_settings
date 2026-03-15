@@ -30,11 +30,8 @@ macos: dist-dir
 	  go build -ldflags="$(LDFLAGS)" \
 	  -o $(DIST)img_settings-darwin-amd64 $(GUI_PKG)
 
-	@echo "→ Creating universal binary with lipo…"
-	lipo -create -output $(DIST)img_settings-darwin-universal \
-	  $(DIST)img_settings-darwin-arm64 \
-	  $(DIST)img_settings-darwin-amd64
-	@echo "✓ $(DIST)img_settings-darwin-universal"
+	@echo "✓ $(DIST)img_settings-darwin-arm64 (Apple Silicon)"
+	@echo "✓ $(DIST)img_settings-darwin-amd64 (Intel)"
 
 ## macOS .app bundle (requires fyne CLI: make fyne-setup)
 bundle-macos: dist-dir
