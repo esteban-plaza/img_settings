@@ -93,8 +93,9 @@ func ReadEXIF(path string) (PhotoSettings, *exiflib.Exif) {
 	}
 
 	if model, err := x.Get(exiflib.Model); err == nil {
-		s.CameraModel, _ = model.StringVal()
-		s.CameraModel = strings.TrimSpace(s.CameraModel)
+		if val, err := model.StringVal(); err == nil {
+			s.CameraModel = strings.TrimSpace(val)
+		}
 	}
 
 	return s, x
