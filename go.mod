@@ -1,12 +1,12 @@
 module github.com/esteban-plaza/img-settings
 
-go 1.21
+go 1.25.0
 
 require (
 	fyne.io/fyne/v2 v2.6.0
 	github.com/fogleman/gg v1.3.0
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
-	golang.org/x/image v0.24.0
+	golang.org/x/image v0.37.0
 )
 
 require (
@@ -40,6 +40,6 @@ require (
 	github.com/yuin/goldmark v1.7.8 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
