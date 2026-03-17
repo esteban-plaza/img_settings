@@ -35,7 +35,7 @@ func collectFiles(paths []string, recurse bool) []string {
 	var files []string
 	for _, p := range paths {
 		if isDir(p) {
-			_ = filepath.Walk(p, func(path string, fi os.FileInfo, err error) error {
+			if err := filepath.Walk(p, func(path string, fi os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -49,7 +49,9 @@ func collectFiles(paths []string, recurse bool) []string {
 					files = append(files, path)
 				}
 				return nil
-			})
+			}); err != nil {
+				fmt.Fprintf(os.Stderr, "walk %q: %v\n", p, err)
+			}
 		} else {
 			if watermark.IsSupportedExt(p) {
 				files = append(files, p)

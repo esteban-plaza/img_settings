@@ -25,12 +25,16 @@ import (
 )
 
 const (
+	// MaxWhatsAppDim is the maximum pixel dimension (longest side) for WhatsApp HD output.
 	MaxWhatsAppDim = 2560
-	JPEGQuality    = 92
+	// JPEGQuality is the JPEG encoding quality used for all output files.
+	JPEGQuality = 92
 )
 
 // ── EXIF settings ────────────────────────────────────────────────────────────
 
+// PhotoSettings holds the EXIF camera-settings fields extracted from a photo.
+// Fields that are absent in the EXIF data are left as empty strings.
 type PhotoSettings struct {
 	Aperture     string
 	ShutterSpeed string
@@ -39,6 +43,10 @@ type PhotoSettings struct {
 	CameraModel  string
 }
 
+// ReadEXIF reads EXIF metadata from the file at path and returns the camera
+// settings and the raw Exif value (used for orientation correction). On any
+// read or decode failure an empty PhotoSettings and nil Exif are returned so
+// the caller can still process the image without metadata.
 func ReadEXIF(path string) (PhotoSettings, *exiflib.Exif) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -93,8 +101,9 @@ func ReadEXIF(path string) (PhotoSettings, *exiflib.Exif) {
 	}
 
 	if model, err := x.Get(exiflib.Model); err == nil {
-		s.CameraModel, _ = model.StringVal()
-		s.CameraModel = strings.TrimSpace(s.CameraModel)
+		if val, err := model.StringVal(); err == nil {
+			s.CameraModel = strings.TrimSpace(val)
+		}
 	}
 
 	return s, x
@@ -102,6 +111,10 @@ func ReadEXIF(path string) (PhotoSettings, *exiflib.Exif) {
 
 // ── Image decoding ────────────────────────────────────────────────────────────
 
+// DecodeImage decodes a JPEG, PNG, or ARW file at path into an image.Image.
+// ARW files are attempted via three fallback strategies: embedded JPEG
+// extraction, dcraw, then ImageMagick. An error is returned only when all
+// strategies fail or the file cannot be opened.
 func DecodeImage(path string) (image.Image, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	if ext == ".arw" {
@@ -237,6 +250,9 @@ func decodePPM(r io.Reader) (image.Image, error) {
 
 // ── Orientation ───────────────────────────────────────────────────────────────
 
+// ApplyOrientation rotates img to its upright position according to the EXIF
+// orientation tag. It is a no-op when x is nil or the orientation tag is
+// absent or has value 1 (normal).
 func ApplyOrientation(img image.Image, x *exiflib.Exif) image.Image {
 	if x == nil {
 		return img
@@ -294,6 +310,9 @@ func rotateImage(img image.Image, deg int) image.Image {
 
 // ── Resize ───────────────────────────────────────────────────────────────────
 
+// ResizeForWhatsApp downsizes img so its longest side is at most
+// MaxWhatsAppDim pixels, preserving the aspect ratio using CatmullRom
+// resampling. Images already within the limit are returned unchanged.
 func ResizeForWhatsApp(img image.Image) image.Image {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
@@ -341,6 +360,10 @@ func buildItems(s PhotoSettings) []wmItem {
 	return items
 }
 
+// AddWatermark stamps a translucent pill-shaped overlay containing the camera
+// settings from s onto img. opacity controls the background pill transparency
+// (0 = invisible, 1 = fully opaque). When s contains no data the image is
+// returned unchanged and no error is raised.
 func AddWatermark(img image.Image, s PhotoSettings, opacity float64) (image.Image, error) {
 	items := buildItems(s)
 	if len(items) == 0 {
@@ -587,11 +610,17 @@ func loadFont(size float64) (font.Face, error) {
 
 // ── File helpers ──────────────────────────────────────────────────────────────
 
+// IsSupportedExt reports whether path has a supported image extension
+// (arw, jpg, jpeg, or png, case-insensitive).
 func IsSupportedExt(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	return ext == ".arw" || ext == ".jpg" || ext == ".jpeg" || ext == ".png"
 }
 
+// CollectFiles expands the given paths (files or directories) into a flat list
+// of supported image files. Directories are walked recursively. Unsupported
+// files are skipped with a message to stderr. An error is returned only when a
+// path cannot be stat'd.
 func CollectFiles(args []string) ([]string, error) {
 	var files []string
 	for _, arg := range args {
@@ -623,6 +652,8 @@ func CollectFiles(args []string) ([]string, error) {
 	return files, nil
 }
 
+// OutputPath returns the output file path for inputPath placed under outDir,
+// replacing the original extension with .jpg.
 func OutputPath(inputPath, outDir string) string {
 	base := filepath.Base(inputPath)
 	stem := strings.TrimSuffix(base, filepath.Ext(base))
@@ -631,6 +662,9 @@ func OutputPath(inputPath, outDir string) string {
 
 // ── Process ───────────────────────────────────────────────────────────────────
 
+// ProcessFile is the single entry point for processing one image file. It reads
+// EXIF metadata, decodes the image, applies orientation correction, resizes it
+// to WhatsApp HD dimensions, stamps the watermark, and writes a JPEG to outDir.
 func ProcessFile(inputPath, outDir string, opacity float64) error {
 	settings, exifData := ReadEXIF(inputPath)
 

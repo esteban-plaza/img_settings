@@ -3,7 +3,12 @@
     "allow": [
       "Bash(gh run:*)",
       "Bash(git add:*)",
-      "Bash(gh release:*)"
+      "Bash(gh release:*)",
+      "Bash(grep -E '\\\\.\\(go|toml\\)$')",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

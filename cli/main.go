@@ -11,6 +11,9 @@ import (
 	watermark "github.com/esteban-plaza/img-settings/lib"
 )
 
+// version is injected at build time via -ldflags "-X main.version=<tag>".
+var version string
+
 func main() {
 	outDir := flag.String("out", "out", "output directory (relative to cwd)")
 	opacityFlag := flag.Float64("opacity", 0.82, "watermark opacity (0.0 = invisible, 1.0 = fully opaque)")

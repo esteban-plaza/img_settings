@@ -1,0 +1,31 @@
+---
+description: This document contains all development rules and guidelines for img-settings, applicable to all AI agents (Claude, Cursor, Codex, Gemini, etc.).
+alwaysApply: true
+---
+
+## 1. Core Principles
+
+- **Small tasks, one at a time**: Always work in baby steps, one at a time. Never go forward more than one step.
+- **Test-Driven Development**: Start with failing tests for any new functionality (TDD), according to the task details.
+- **Type Safety**: All code must be fully typed. Use Go's static type system; avoid `interface{}` unless strictly necessary.
+- **Clear Naming**: Use clear, descriptive names for all variables, functions, and types.
+- **Incremental Changes**: Prefer incremental, focused changes over large, complex modifications.
+- **Question Assumptions**: Always question assumptions and inferences before acting.
+- **Pattern Detection**: Detect and highlight repeated code patterns; extract shared helpers only when a pattern appears at least three times.
+
+## 2. Language Standards
+
+- **English Only**: All technical artifacts must always use English, including:
+    - Code (variables, functions, types, constants, comments, error messages, log messages)
+    - Documentation (README, guides, inline docs)
+    - Data schemas and file/directory names
+    - Configuration files and scripts
+    - Git commit messages and branch names
+    - Test names and descriptions
+
+## 3. Specific Standards
+
+For detailed standards and guidelines specific to different areas of the project, refer to:
+
+- [Go Standards](./go-standards.mdc) — Go code style, package layout, error handling, testing, and CI/CD practices
+- [Development Guide](./development_guide.md) — Environment setup, build commands, test commands, and release workflow
