@@ -9,6 +9,9 @@ import (
 	"fyne.io/fyne/v2/container"
 )
 
+// version is injected at build time via -ldflags "-X main.version=<tag>".
+var version string
+
 //go:embed assets/AppIcon.png
 var iconBytes []byte
 

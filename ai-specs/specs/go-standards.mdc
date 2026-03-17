@@ -1,0 +1,399 @@
+---
+description: Go development standards, best practices, and conventions for the img-settings project including package layout, error handling, testing, CI/CD, and release practices.
+globs: ["**/*.go", "go.mod", "go.sum", "Makefile", ".github/workflows/*.yml"]
+alwaysApply: true
+---
+
+# Go Project Standards and Best Practices
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Technology Stack](#technology-stack)
+- [Architecture Overview](#architecture-overview)
+  - [Package Layout](#package-layout)
+  - [Dependency Flow](#dependency-flow)
+- [Coding Standards](#coding-standards)
+  - [Naming Conventions](#naming-conventions)
+  - [Error Handling](#error-handling)
+  - [Concurrency](#concurrency)
+  - [Comments and Documentation](#comments-and-documentation)
+- [Testing Standards](#testing-standards)
+  - [Unit Testing](#unit-testing)
+  - [Table-Driven Tests](#table-driven-tests)
+  - [Test Coverage Requirements](#test-coverage-requirements)
+  - [Mocking and Fakes](#mocking-and-fakes)
+- [Build System](#build-system)
+  - [Makefile Targets](#makefile-targets)
+  - [Cross-Compilation](#cross-compilation)
+  - [Version Injection](#version-injection)
+- [Development Workflow](#development-workflow)
+  - [Git Workflow](#git-workflow)
+  - [Branch Naming](#branch-naming)
+  - [Commit Messages](#commit-messages)
+  - [Pull Requests](#pull-requests)
+- [CI/CD Pipeline](#cicd-pipeline)
+  - [CI Checks](#ci-checks)
+  - [Release Automation](#release-automation)
+- [Performance Best Practices](#performance-best-practices)
+- [Security Best Practices](#security-best-practices)
+
+---
+
+## Overview
+
+img-settings is a cross-platform desktop application (GUI + CLI) that reads EXIF metadata from photos and stamps a clean watermark with camera settings. It targets WhatsApp-optimised JPEG output (max 2560 px, quality 92). The project is written in Go 1.21+ and uses the Fyne v2 framework for the GUI.
+
+This document outlines the standards that every contributor (human or AI) must follow to keep the codebase consistent, testable, and maintainable.
+
+---
+
+## Technology Stack
+
+### Core
+
+| Component | Technology | Notes |
+|-----------|-----------|-------|
+| Language | Go 1.21+ | Modules mode, `go.mod` is the source of truth |
+| GUI framework | `fyne.io/fyne/v2` v2.6.x | CGO required; Apple-inspired custom theme |
+| Graphics rendering | `github.com/fogleman/gg` v1.3.0 | Watermark drawing |
+| EXIF parsing | `github.com/rwcarlsen/goexif` | Reads aperture, shutter, ISO, focal length, model |
+| Image manipulation | `golang.org/x/image` | Resize (CatmullRom), orientation correction |
+| Embedded font | `golang.org/x/image/font/gofont/goregular` | No external font files needed |
+
+### Build & Tooling
+
+| Tool | Purpose |
+|------|---------|
+| `make` | Primary build orchestrator |
+| `go vet` | Static analysis (mandatory in CI) |
+| `go test` | Unit testing |
+| `fyne` CLI | macOS `.app` bundle packaging |
+| `mingw-w64` | Windows cross-compilation from macOS |
+| `semantic-release` | Automated versioning and GitHub releases |
+
+### CI/CD
+
+- **GitHub Actions** — CI (`ci.yml`) and release (`release.yml`) workflows
+- **Dependabot** — Monthly Go module updates
+- **Semantic Release** — Commit-message–driven versioning on `main`
+
+---
+
+## Architecture Overview
+
+### Package Layout
+
+```
+img-settings/
+├── lib/                  # Pure domain logic — no GUI, no CLI coupling
+│   └── watermark.go      # EXIF reading, image decoding, watermark rendering, file helpers
+├── gui/                  # Fyne GUI application (CGO required)
+│   ├── main.go           # App entry point, window setup, drop handler
+│   ├── dropzone.go       # Drag-and-drop zone component
+│   ├── processor.go      # Bridges lib.ProcessFile to GUI job results
+│   ├── results.go        # Results view (progress bar + file list)
+│   ├── toolbar.go        # Settings bar (opacity, output dir, recurse toggle)
+│   ├── picker.go         # File/folder picker (fallback for no-DnD environments)
+│   ├── theme.go          # Custom Apple-inspired Fyne theme
+│   ├── util.go           # GUI utilities (path helpers, etc.)
+│   ├── demo.go           # Demo mode (build tag: demo)
+│   ├── demo_stub.go      # No-op stub (default build)
+│   └── assets/           # Embedded assets (AppIcon.png)
+├── cli/
+│   └── main.go           # CLI entry point, flag parsing, parallel processing
+├── .github/
+│   ├── workflows/
+│   │   ├── ci.yml        # go vet + build checks on every push/PR
+│   │   └── release.yml   # Cross-platform binary release via semantic-release
+│   └── dependabot.yml
+├── docs/                 # User-facing documentation (English + Spanish)
+├── scripts/              # Screenshot and sample generation utilities
+├── Makefile              # Build targets
+├── go.mod / go.sum
+└── .releaserc.json       # Semantic-release configuration
+```
+
+### Dependency Flow
+
+```
+cli/main.go ──────────────┐
+                           ▼
+                      lib/watermark.go   ← pure logic, zero GUI imports
+                           ▲
+gui/processor.go ─────────┘
+gui/*.go  ─────────────────→  fyne.io/fyne/v2  (GUI layer only)
+```
+
+**Rule**: `lib/` must never import `gui/` or `cli/`. `gui/` and `cli/` may import `lib/`. This ensures the core logic can be tested without a display server.
+
+---
+
+## Coding Standards
+
+### Naming Conventions
+
+| Entity | Convention | Example |
+|--------|-----------|---------|
+| Packages | lowercase, single word | `watermark`, `main` |
+| Exported types | PascalCase | `PhotoSettings`, `ProcessFile` |
+| Unexported functions | camelCase | `buildItems`, `loadFont` |
+| Constants | PascalCase (exported) or camelCase (unexported) | `MaxWhatsAppDim`, `sepW` |
+| Errors | `err` for local; descriptive wrapping | `fmt.Errorf("decode: %w", err)` |
+| Test files | `_test.go` suffix, same package | `watermark_test.go` |
+
+### Error Handling
+
+- **Always return errors**: never swallow them silently except in tests.
+- **Wrap with context**: use `fmt.Errorf("context: %w", err)` to preserve the chain.
+- **No `panic` in library code**: `lib/` must never panic on bad input; return a descriptive error instead.
+- **GUI errors**: surface via Fyne dialogs or the result view — never `log.Fatal` in GUI code.
+- **CLI errors**: print to `stderr` and exit with a non-zero code.
+
+```go
+// Good
+if err := jpeg.Encode(f, img, &jpeg.Options{Quality: JPEGQuality}); err != nil {
+    return fmt.Errorf("encode JPEG: %w", err)
+}
+
+// Bad — swallowing error
+jpeg.Encode(f, img, &jpeg.Options{Quality: JPEGQuality})
+```
+
+### Concurrency
+
+- Use `sync.WaitGroup` for fan-out patterns (CLI parallel processing, GUI batch jobs).
+- Communicate results back to the GUI only via `fyne.Do(func() { ... })` to stay on the main thread.
+- Prefer channels over shared mutable state for job results.
+- Keep goroutines short-lived and bound to a well-defined scope.
+
+### Comments and Documentation
+
+- Every exported symbol (type, function, constant) must have a Go doc comment.
+- Comments explain **why**, not **what** — the code explains itself.
+- Use section banners (`// ── Section ──────`) to group related functions within large files (matches existing style).
+- Avoid redundant comments like `// increment i` above `i++`.
+
+---
+
+## Testing Standards
+
+### Unit Testing
+
+- Tests live alongside the code they test in `*_test.go` files.
+- Test file naming: `<source_file>_test.go` (e.g., `watermark_test.go`).
+- Use the standard `testing` package; no external test frameworks.
+- Every test function must start with `Test` followed by a descriptive name in PascalCase.
+
+```go
+func TestReadEXIF_MissingFile(t *testing.T) { ... }
+func TestAddWatermark_NoEXIFData(t *testing.T) { ... }
+func TestResizeForWhatsApp_LargeImage(t *testing.T) { ... }
+```
+
+### Table-Driven Tests
+
+Prefer table-driven tests for functions with multiple input/output scenarios:
+
+```go
+func TestOutputPath(t *testing.T) {
+    cases := []struct {
+        name      string
+        inputPath string
+        outDir    string
+        want      string
+    }{
+        {"jpg in subdir", "photos/img.jpg", "out", "out/img.jpg"},
+        {"arw file",      "raw/shot.arw",  "out", "out/shot.jpg"},
+        {"png file",      "img.png",       ".",   "./img.jpg"},
+    }
+    for _, tc := range cases {
+        t.Run(tc.name, func(t *testing.T) {
+            got := OutputPath(tc.inputPath, tc.outDir)
+            if got != tc.want {
+                t.Errorf("got %q, want %q", got, tc.want)
+            }
+        })
+    }
+}
+```
+
+### Test Coverage Requirements
+
+| Package | Minimum coverage |
+|---------|-----------------|
+| `lib/`  | 80% statements  |
+| `cli/`  | 60% statements  |
+| `gui/`  | Best-effort (Fyne widgets require a display; mock the processor boundary) |
+
+Run coverage locally:
+```bash
+go test ./lib/ -coverprofile=coverage.out && go tool cover -html=coverage.out
+```
+
+### Mocking and Fakes
+
+- `lib/` has no external side effects beyond the filesystem and optional external tools (`dcraw`, ImageMagick).
+- For filesystem-dependent tests, use `t.TempDir()` to create isolated directories.
+- For functions that shell out (`exec.Command`), inject a `lookPath` function or use build tags to swap in a fake.
+- Do not mock the filesystem with an abstraction layer — the overhead is not justified for this project size.
+
+---
+
+## Build System
+
+### Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+| `make all` | Build macOS (arm64 + amd64) + Windows + CLI |
+| `make macos` | macOS arm64 and amd64 binaries |
+| `make windows` | Windows amd64 `.exe` (requires `mingw-w64`) |
+| `make cli` | CLI binary (CGO disabled) |
+| `make dev` | Fast native dev build |
+| `make bundle-macos` | macOS `.app` bundle via Fyne CLI |
+| `make clean` | Remove `dist/` and `.syso` files |
+| `make fyne-setup` | Install the Fyne CLI tool |
+
+All binaries are emitted to `dist/`.
+
+### Cross-Compilation
+
+| Target | CGO | Compiler variable |
+|--------|-----|------------------|
+| macOS arm64 | enabled | default Xcode toolchain |
+| macOS amd64 | enabled | default Xcode toolchain |
+| Windows amd64 | enabled | `CC=x86_64-w64-mingw32-gcc` |
+| CLI (any) | disabled | — |
+
+Never enable CGO for the CLI binary — it must remain a single static binary with no external dependencies.
+
+### Version Injection
+
+The current git tag (or `dev` fallback) is injected at link time:
+
+```makefile
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -s -w -X main.version=$(VERSION)
+```
+
+Every binary exposes `var version string` in its `main` package.
+
+---
+
+## Development Workflow
+
+### Git Workflow
+
+1. `main` is the single long-lived branch. All releases are cut from `main`.
+2. Feature work and bug fixes live on short-lived branches created from `main`.
+3. Branches are merged via pull requests — direct pushes to `main` are only for automated release commits.
+4. Every PR must pass CI (go vet + build checks) before merge.
+
+### Branch Naming
+
+| Type | Pattern | Example |
+|------|---------|---------|
+| Feature | `feature/<short-description>` | `feature/cli-output-flag` |
+| Bug fix | `fix/<short-description>` | `fix/arw-orientation` |
+| Chore / docs | `chore/<short-description>` | `chore/update-deps` |
+| Release prep | handled by semantic-release | — |
+
+### Commit Messages
+
+Follow the **Conventional Commits** specification (required by semantic-release):
+
+```
+<type>(<scope>): <subject>
+
+[optional body]
+[optional footer]
+```
+
+| Type | When to use |
+|------|------------|
+| `feat` | New user-visible feature |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `chore` | Build, CI, or tooling change |
+| `refactor` | Code restructure with no behaviour change |
+| `test` | Adding or fixing tests |
+| `perf` | Performance improvement |
+
+Examples:
+```
+feat(cli): add --quality flag for JPEG output quality
+fix(lib): correct EXIF orientation for tag value 8 (270°)
+chore(ci): cache Go modules in release workflow
+test(lib): add table-driven tests for OutputPath
+```
+
+**Breaking changes** must include `BREAKING CHANGE:` in the footer — this triggers a major version bump.
+
+### Pull Requests
+
+- Keep PRs small and focused: one logical change per PR.
+- Include a description of **what** changed and **why**.
+- Reference any related issue in the PR body.
+- Ensure `go vet ./...` and `go build ./...` pass locally before pushing.
+- Add or update tests for every changed behaviour.
+
+---
+
+## CI/CD Pipeline
+
+### CI Checks
+
+Triggered on every push to `main` and every pull request targeting `main`.
+
+**Steps** (`.github/workflows/ci.yml`):
+1. `actions/setup-go@v5` with version from `go.mod` and module cache enabled.
+2. Install Linux GL dependencies (`libgl1-mesa-dev xorg-dev`) — needed for Fyne's CGO compile check.
+3. `go vet ./...` — must pass with zero warnings.
+4. `CGO_ENABLED=0 go build ./lib/ ./cli/` — verifies the pure-Go packages compile.
+5. `CGO_ENABLED=1 go build ./gui/` — headless compile check for the GUI.
+
+**Failure policy**: a single failing step blocks the merge.
+
+### Release Automation
+
+Triggered automatically when a commit is merged to `main` and semantic-release detects a releasable change.
+
+**Steps** (`.github/workflows/release.yml`):
+1. `semantic-release` analyses commit messages and determines the next version.
+2. Two parallel build jobs run:
+   - **macOS job**: builds `img-settings-darwin-arm64`, `img-settings-darwin-amd64`, and the CLI.
+   - **Windows job**: builds `img-settings-windows-amd64.exe` and the CLI `.exe`.
+3. All binaries are uploaded as assets to the GitHub Release created by semantic-release.
+
+**Release configuration** (`.releaserc.json`):
+```json
+{
+  "branches": ["main"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    ["@semantic-release/github", { "successComment": false }]
+  ]
+}
+```
+
+---
+
+## Performance Best Practices
+
+- **Resize before watermarking**: always call `ResizeForWhatsApp` before `AddWatermark` so the graphics context operates on the final resolution.
+- **Font caching**: `loadFont` is called inside the font-shrink loop; consider caching the parsed `opentype.Font` if profiling reveals it as a hot path.
+- **Parallel processing**: the CLI uses `sync.WaitGroup` for fan-out; the GUI runs the batch in a single goroutine calling `lib.ProcessFile` sequentially to avoid memory spikes on large batches. Increase parallelism only after benchmarking.
+- **Image decoding**: ARW files fall back through three strategies (embedded JPEG → dcraw → ImageMagick). The embedded JPEG path is the fastest; ensure it works for all target Sony camera models.
+- **Avoid allocations in the hot path**: `buildItems` and `drawIcon` are called once per image; no special optimisation needed.
+
+---
+
+## Security Best Practices
+
+- **External tool invocation**: `decodeARW` uses `exec.Command` to call `dcraw` and `magick`. Always use explicit argument slices — never interpolate user input into shell strings.
+- **File paths**: validate that input files match `IsSupportedExt` before processing. Never process arbitrary file types.
+- **Output directory**: the output directory is user-supplied. Ensure it is created with `os.MkdirAll` only after validating it does not escape the intended base path.
+- **No network access**: img-settings is a fully offline tool. Do not add network calls. Any future telemetry must be opt-in and clearly documented.
+- **Embedded assets**: the app icon and font are embedded via `//go:embed` at compile time — no runtime file reads for these assets.
