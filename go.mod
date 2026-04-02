@@ -6,7 +6,7 @@ require (
 	fyne.io/fyne/v2 v2.7.3
 	github.com/fogleman/gg v1.3.0
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
-	golang.org/x/image v0.37.0
+	golang.org/x/image v0.38.0
 )
 
 require (
